@@ -22,8 +22,8 @@ A comprehensive academic paper search tool that aggregates research papers from 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/academic-paper-search-agent.git
-cd academic-paper-search-agent
+git clone https://github.com/srinivas2200030391/Academic-Paper-Search-Agent.git
+cd Academic-Paper-Search-Agent
 ```
 
 ### 2. Create a virtual environment
