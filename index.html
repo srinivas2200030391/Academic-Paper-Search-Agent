@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Academic Research Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --claude-primary: rgb(127, 83, 172, 0.9);
+            --claude-primary-light: rgb(242, 240, 247);
+            --claude-primary-hover: rgb(107, 70, 146);
+            --claude-background: rgb(250, 250, 252);
+            --claude-text: rgb(70, 50, 100);
+        }
+
+        body {
+            background-color: var(--claude-background);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            color: #444;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        .claude-primary {
+            background-color: var(--claude-primary);
+        }
+
+        .claude-primary-light {
+            background-color: var(--claude-primary-light);
+        }
+
+        .claude-text {
+            color: var(--claude-text);
+        }
+
+        .claude-border {
+            border-color: var(--claude-primary);
+        }
+
+        .claude-primary-hover:hover {
+            background-color: var(--claude-primary-hover);
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .paper-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .paper-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        }
+
+        .relevance-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        .relevance-badge-high {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: rgb(6, 95, 70);
+        }
+
+        .relevance-badge-medium {
+            background-color: rgba(251, 191, 36, 0.15);
+            color: rgb(146, 64, 14);
+        }
+
+        .relevance-badge-low {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: rgb(153, 27, 27);
+        }
+
+        .chip {
+            display: inline-block;
+            background: rgba(127, 83, 172, 0.1);
+            border-radius: 16px;
+            padding: 3px 12px;
+            margin: 2px;
+            color: var(--claude-text);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip:hover, .chip.active {
+            background: rgba(127, 83, 172, 0.3);
+            color: var(--claude-text);
+        }
+
+        .tag-cloud {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        /* Hero section with gradient */
+        .hero-section {
+            background: linear-gradient(135deg, rgba(127, 83, 172, 0.05) 0%, rgba(127, 83, 172, 0.1) 100%);
+            padding: 4rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-card {
+            backdrop-filter: blur(10px);
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .search-card:hover {
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-heading {
+            font-size: 2.75rem;
+            background: linear-gradient(90deg, #7F53AC 0%, #5D3E85 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .sub-heading {
+            font-size: 1.25rem;
+            color: #666;
+            text-align: center;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ccc;
+        }
+
+        .results-container {
+            margin-top: 2rem;
+        }
+
+        .search-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .search-btn:hover .search-icon {
+            transform: scale(1.1);
+        }
+
+        footer {
+            margin-top: auto;
+        }
+
+        /* Filter sidebar styling */
+        .filter-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 300px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+            padding-top: 64px; /* Space for header */
+            overflow-y: auto;
+        }
+
+        .filter-sidebar.visible {
+            transform: translateX(0);
+        }
+
+        .filter-sidebar:hover {
+            transform: translateX(0);
+        }
+
+        .filter-toggle {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            padding: 15px 10px;
+            z-index: 60;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-toggle:hover {
+            background: var(--claude-primary-light);
+        }
+
+        .filter-toggle.open {
+            left: 300px;
+        }
+
+        .main-content {
+            transition: margin-left 0.3s ease-in-out;
+        }
+
+        .main-content.shifted {
+            margin-left: 300px;
+        }
+
+        /* Beautiful input field styling */
+        .enhanced-input {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .enhanced-input:focus {
+            box-shadow: 0 8px 20px rgba(127, 83, 172, 0.15);
+            border-color: rgba(127, 83, 172, 0.3);
+        }
+
+        /* Improved buttons */
+        .primary-button {
+            background: linear-gradient(135deg, #7F53AC 0%, #647DEE 100%);
+            transition: all 0.3s ease;
+            transform: translateY(0);
+            box-shadow: 0 4px 10px rgba(127, 83, 172, 0.2);
+        }
+
+        .primary-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(127, 83, 172, 0.3);
+            filter: brightness(1.05);
+        }
+
+        /* Center section for search */
+        .center-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            padding: 0 20px;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .filter-content {
+            padding: 20px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-heading {
+                font-size: 2rem;
+            }
+
+            .sub-heading {
+                font-size: 1.1rem;
+            }
+
+            .filter-sidebar {
+                width: 260px;
+            }
+
+            .filter-toggle.open {
+                left: 260px;
+            }
+
+            .main-content.shifted {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-40">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-semibold claude-text flex items-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="mr-2">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Academic Research Explorer
+                </h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filter Toggle Button -->
+    <div id="filterToggle" class="filter-toggle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="claude-text">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+    </div>
+
+    <!-- Left Sidebar - Filters -->
+    <aside id="filterSidebar" class="filter-sidebar">
+        <div class="filter-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-medium text-gray-700 text-lg">Filter Results</h3>
+                <button id="closeFilters" class="text-gray-500 hover:text-gray-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Year Range</label>
+                    <div class="flex space-x-2">
+                        <input
+                            type="number"
+                            id="yearMin"
+                            placeholder="From"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
+                        >
+                        <input
+                            type="number"
+                            id="yearMax"
+                            placeholder="To"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Relevance</label>
+                    <div class="flex items-center">
+                        <input
+                            type="range"
+                            id="relevanceSlider"
+                            min="0"
+                            max="100"
+                            value="0"
+                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        >
+                        <span id="relevanceValue" class="ml-2 w-8 text-center text-gray-600">0%</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Source/Journal</label>
+                    <select id="sourceFilter" class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                        <option value="">All Sources</option>
+                        <!-- Will be populated dynamically -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Sort By</label>
+                    <select id="sortBy" class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                        <option value="relevance">Relevance (High to Low)</option>
+                        <option value="year_desc">Year (Newest First)</option>
+                        <option value="year_asc">Year (Oldest First)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Authors</label>
+                    <input
+                        type="text"
+                        id="authorFilter"
+                        placeholder="Filter by author name"
+                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
+                    >
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Keywords</label>
+                    <div id="keywordTags" class="bg-gray-50 p-2 rounded-md tag-cloud">
+                        <!-- Empty - will be populated based on search results -->
+                    </div>
+                </div>
+
+                <div class="pt-2 space-y-2">
+                    <button
+                        id="applyFilters"
+                        type="button"
+                        class="w-full primary-button text-white py-2 px-4 rounded-md transition duration-300"
+                    >
+                        Apply Filters
+                    </button>
+                    <button
+                        id="resetFilters"
+                        type="button"
+                        class="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition duration-300"
+                    >
+                        Reset Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main id="mainContent" class="main-content flex-grow mt-16">
+        <!-- Hero Section with Title -->
+        <section class="hero-section mb-8">
+            <div class="container mx-auto px-4">
+                <h1 class="main-heading">Discover Academic Research</h1>
+                <p class="sub-heading">Explore cutting-edge papers across disciplines with Claude's advanced research tools</p>
+            </div>
+        </section>
+
+        <!-- Center Section for Search -->
+        <div class="center-section">
+            <!-- Search Input -->
+            <div class="search-container w-full">
+                <div class="search-card p-8 mb-8">
+                    <form id="searchForm" class="space-y-4">
+                        <div>
+                            <label for="topics" class="block text-lg font-medium text-gray-700 mb-3">Enter Research Topics</label>
+                            <textarea
+                                id="topics"
+                                name="topics"
+                                rows="3"
+                                class="mt-1 block w-full rounded-lg enhanced-input
+                                    border-gray-300 shadow-sm focus:outline-none
+                                    text-lg p-4"
+                                placeholder="What research are you interested in exploring today?"
+                            ></textarea>
+                        </div>
+                        <button
+                            type="submit"
+                            class="search-btn w-full primary-button py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center text-lg font-medium"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 search-icon" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                            </svg>
+                            Explore Research Papers
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Initial State - No Results Yet -->
+                <div id="initialState" class="text-center py-10 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="text-xl font-medium text-gray-500 mb-2">Begin Your Research Journey</h3>
+                    <p class="text-gray-400 max-w-md mx-auto">Enter research topics above to discover relevant academic papers and publications</p>
+                </div>
+
+                <!-- Search Results (initially hidden) -->
+                <div id="resultsContainer" class="space-y-4 hidden w-full">
+                    <!-- Results will be dynamically populated here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t mt-auto">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-gray-500 text-sm mb-4 md:mb-0">
+                    © 2025 Academic Research Explorer | Powered by Anthropic
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Filter sidebar functionality
+        const filterToggle = document.getElementById('filterToggle');
+        const filterSidebar = document.getElementById('filterSidebar');
+        const closeFilters = document.getElementById('closeFilters');
+        const mainContent = document.getElementById('mainContent');
+
+        let sidebarVisible = false;
+
+        // Toggle filter sidebar visibility
+        function toggleSidebar() {
+            sidebarVisible = !sidebarVisible;
+            if (sidebarVisible) {
+                filterSidebar.classList.add('visible');
+                filterToggle.classList.add('open');
+                // Only shift content on larger screens
+                if (window.innerWidth > 1024) {
+                    mainContent.classList.add('shifted');
+                }
+            } else {
+                filterSidebar.classList.remove('visible');
+                filterToggle.classList.remove('open');
+                mainContent.classList.remove('shifted');
+            }
+        }
+
+        // Event listeners
+        filterToggle.addEventListener('click', toggleSidebar);
+        closeFilters.addEventListener('click', () => {
+            if (sidebarVisible) toggleSidebar();
+        });
+
+        // Hover functionality for sidebar
+        filterSidebar.addEventListener('mouseenter', () => {
+            if (!sidebarVisible) {
+                filterSidebar.classList.add('visible');
+                // Only shift content on larger screens
+                if (window.innerWidth > 1024) {
+                    mainContent.classList.add('shifted');
+                }
+            }
+        });
+
+        filterSidebar.addEventListener('mouseleave', () => {
+            if (!sidebarVisible) {
+                filterSidebar.classList.remove('visible');
+                mainContent.classList.remove('shifted');
+            }
+        });
+
+        // Relevance slider
+        const relevanceSlider = document.getElementById('relevanceSlider');
+        const relevanceValue = document.getElementById('relevanceValue');
+
+        relevanceSlider.addEventListener('input', () => {
+            relevanceValue.textContent = `${relevanceSlider.value}%`;
+        });
+
+        const initialState = document.getElementById('initialState');
+        const resultsContainer = document.getElementById('resultsContainer');
+        // Reset filters button
+        const resetFilters = document.getElementById('resetFilters');
+
+        resetFilters.addEventListener('click', () => {
+            document.getElementById('yearMin').value = '';
+            document.getElementById('yearMax').value = '';
+            document.getElementById('relevanceSlider').value = 0;
+            relevanceValue.textContent = '0%';
+            document.getElementById('sourceFilter').selectedIndex = 0;
+            document.getElementById('sortBy').selectedIndex = 0;
+            document.getElementById('authorFilter').value = '';
+        });
+
+        // Store original search results for filtering
+        let originalSearchResults = {};
+        let extractedKeywords = new Set();
+        let extractedSources = new Set();
+        let selectedKeywords = new Set();
+
+        // Initialize filter UI elements
+        document.getElementById('relevanceSlider').addEventListener('input', function() {
+            document.getElementById('relevanceValue').textContent = this.value;
+        });
+
+        document.getElementById('toggleFilters').addEventListener('click', function() {
+            const filterPanel = document.getElementById('filterPanel');
+            if (filterPanel.style.maxHeight) {
+                filterPanel.style.maxHeight = null;
+            } else {
+                filterPanel.style.maxHeight = filterPanel.scrollHeight + "px";
+            }
+        });
+
+        document.getElementById('resetFilters').addEventListener('click', function() {
+            document.getElementById('yearMin').value = '';
+            document.getElementById('yearMax').value = '';
+            document.getElementById('relevanceSlider').value = 0;
+            document.getElementById('relevanceValue').textContent = '0';
+            document.getElementById('sourceFilter').value = '';
+            document.getElementById('authorFilter').value = '';
+            document.getElementById('sortBy').value = 'relevance';
+
+            // Reset keyword selections
+            selectedKeywords.clear();
+            const keywordChips = document.querySelectorAll('#keywordTags .chip');
+            keywordChips.forEach(chip => chip.classList.remove('active'));
+
+            renderSearchResults(originalSearchResults);
+        });
+
+        document.getElementById('applyFilters').addEventListener('click', function() {
+            applyFilters();
+        });
+
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const topicsTextarea = document.getElementById('topics');
+            const filterContainer = document.getElementById('filterContainer');
+            const topics = topicsTextarea.value.split('\n').filter(topic => topic.trim() !== '');
+
+            // Clear previous results and show loading state
+
+            resultsContainer.innerHTML = `
+                <div class="text-center text-gray-600">
+                    <svg class="animate-spin h-10 w-10 mx-auto" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-4">Searching academic papers...</p>
+                </div>
+            `;
+            try {
+                const formData = new FormData();
+                topics.forEach(topic => formData.append('topics', topic));
+
+                const response = await axios.post('/search', formData);
+                const searchResults = response.data;
+                initialState.classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+                // Store original results for filtering
+                originalSearchResults = JSON.parse(JSON.stringify(searchResults));
+
+                // Extract keywords and sources for filters
+                extractKeywordsAndSources(originalSearchResults);
+
+                // Show filter options only when we have results
+                filterContainer.classList.remove('hidden');
+
+                // Reset filters
+                document.getElementById('yearMin').value = '';
+                document.getElementById('yearMax').value = '';
+                document.getElementById('relevanceSlider').value = 0;
+                document.getElementById('relevanceValue').textContent = '0';
+                document.getElementById('sourceFilter').value = '';
+                document.getElementById('authorFilter').value = '';
+                document.getElementById('sortBy').value = 'relevance';
+                selectedKeywords.clear();
+
+                // Populate filter dropdowns
+                populateSourceFilter();
+                populateKeywordTags();
+
+                // Render results
+                renderSearchResults(searchResults);
+
+                // Update filter panel height after populating keywords
+                const filterPanel = document.getElementById('filterPanel');
+                if (filterPanel.style.maxHeight) {
+                    filterPanel.style.maxHeight = filterPanel.scrollHeight + "px";
+                }
+
+            } catch (error) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center text-red-600">
+                        <p>Error searching papers: ${error.message}</p>
+                    </div>
+                `;
+                console.error('Search error:', error);
+            }
+        });
+
+        function extractKeywordsAndSources(results) {
+            // Clear previous extractions
+            extractedKeywords.clear();
+            extractedSources.clear();
+
+            // Extract all sources and simulate keywords from titles
+            Object.values(results).forEach(topicData => {
+                topicData.papers.forEach(paper => {
+                    // Extract sources
+                    if (paper.source) {
+                        extractedSources.add(paper.source);
+                    }
+
+                    // Extract keywords from title
+                    // In a real implementation, papers would have actual keywords
+                    // Here we're simulating by extracting notable words from titles
+                    const titleWords = paper.title.split(/\s+/)
+                        .filter(word => word.length > 4)  // Only longer words
+                        .map(word => word.replace(/[.,;:()]/g, '')) // Remove punctuation
+                        .filter(word => !['and', 'with', 'using', 'based', 'from', 'through'].includes(word.toLowerCase()));
+
+                    titleWords.forEach(word => {
+                        if (word) extractedKeywords.add(word);
+                    });
+                });
+            });
+        }
+
+        function populateSourceFilter() {
+            const sourceFilter = document.getElementById('sourceFilter');
+            // Clear previous options except the first one
+            while (sourceFilter.options.length > 1) {
+                sourceFilter.remove(1);
+            }
+
+            // Add new source options
+            Array.from(extractedSources).sort().forEach(source => {
+                const option = document.createElement('option');
+                option.value = source;
+                option.textContent = source;
+                sourceFilter.appendChild(option);
+            });
+        }
+
+        function populateKeywordTags() {
+            const keywordTags = document.getElementById('keywordTags');
+            keywordTags.innerHTML = '';
+
+            // Only take up to 20 keywords to prevent overwhelming the UI
+            const keywordsToShow = Array.from(extractedKeywords).sort().slice(0, 20);
+
+            keywordsToShow.forEach(keyword => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = keyword;
+                chip.dataset.keyword = keyword;
+
+                chip.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    if (this.classList.contains('active')) {
+                        selectedKeywords.add(this.dataset.keyword);
+                    } else {
+                        selectedKeywords.delete(this.dataset.keyword);
+                    }
+                });
+
+                keywordTags.appendChild(chip);
+            });
+        }
+
+        function applyFilters() {
+            const yearMin = parseInt(document.getElementById('yearMin').value) || 0;
+            const yearMax = parseInt(document.getElementById('yearMax').value) || 9999;
+            const minRelevance = parseInt(document.getElementById('relevanceSlider').value);
+            const selectedSource = document.getElementById('sourceFilter').value;
+            const authorText = document.getElementById('authorFilter').value.toLowerCase();
+            const sortBy = document.getElementById('sortBy').value;
+
+            // Deep clone original results
+            const filteredResults = JSON.parse(JSON.stringify(originalSearchResults));
+
+            // Apply filters to each topic's papers
+            for (const [topic, data] of Object.entries(filteredResults)) {
+                data.papers = data.papers.filter(paper => {
+                    const paperYear = parseInt(paper.year);
+                    const matchesYear = paperYear >= yearMin && paperYear <= yearMax;
+                    const matchesRelevance = paper.relevance_score >= minRelevance;
+                    const matchesSource = !selectedSource || paper.source === selectedSource;
+
+                    // Author filter
+                    const matchesAuthor = !authorText ||
+                        paper.authors.some(author => author.toLowerCase().includes(authorText));
+
+                    // Keyword filter
+                    let matchesKeywords = true;
+                    if (selectedKeywords.size > 0) {
+                        // Check if paper title contains any of the selected keywords
+                        matchesKeywords = Array.from(selectedKeywords).some(keyword =>
+                            paper.title.includes(keyword)
+                        );
+                    }
+
+                    return matchesYear && matchesRelevance && matchesSource &&
+                           matchesAuthor && matchesKeywords;
+                });
+
+                // Sort papers based on selected option
+                data.papers.sort((a, b) => {
+                    switch(sortBy) {
+                        case 'year_desc':
+                            return b.year - a.year;
+                        case 'year_asc':
+                            return a.year - b.year;
+                        case 'relevance':
+                        default:
+                            return b.relevance_score - a.relevance_score;
+                    }
+                });
+            }
+
+            renderSearchResults(filteredResults);
+        }
+
+        function renderSearchResults(searchResults) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            let resultsHTML = '';
+
+            for (const [topic, data] of Object.entries(searchResults)) {
+                // Skip topics with no papers after filtering
+                if (data.papers.length === 0) {
+                    resultsHTML += `
+                        <div class="bg-white shadow-md rounded-lg p-6 animate-fade-in">
+                            <h2 class="text-2xl font-bold mb-2 text-gray-800">Results for: ${topic}</h2>
+                            <p class="text-gray-600">No papers match your filter criteria.</p>
+                        </div>
+                    `;
+                    continue;
+                }
+
+                const papersHTML = data.papers.map(paper => {
+                    // Determine relevance badge class
+                    let badgeClass = 'relevance-badge-low';
+                    if (paper.relevance_score >= 70) {
+                        badgeClass = 'relevance-badge-high';
+                    } else if (paper.relevance_score >= 40) {
+                        badgeClass = 'relevance-badge-medium';
+                    }
+
+                    return `
+                    <div class="bg-gray-50 rounded-lg p-4 mb-2">
+                        <h4 class="font-semibold text-lg">
+                            ${paper.title}
+                            <span class="relevance-badge ${badgeClass}">
+                                Relevance: ${paper.relevance_score}%
+                            </span>
+                        </h4>
+                        <p class="text-gray-600">
+                            Authors: ${paper.authors.join(', ')}
+                            | Year: ${paper.year}
+                            | Source: ${paper.source}
+                        </p>
+                        <a href="${paper.url}" target="_blank" class="text-indigo-600 hover:underline">View Paper</a>
+                    </div>
+                `}).join('');
+
+                // Modify survey text to convert ** to <strong> tags
+                const formattedSurvey = data.survey
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .split('\n')
+                    .map(p => `<p>${p.trim()}</p>`)
+                    .join('');
+
+                resultsHTML += `
+                    <div class="bg-white shadow-md rounded-lg p-6 animate-fade-in">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-800">Results for: ${topic}</h2>
+
+                        <div class="mb-6">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4">Papers (${data.papers.length})</h3>
+                            <div class="space-y-2">${papersHTML}</div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4">Literature Survey</h3>
+                            <div class="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                                <div class="prose max-w-none text-gray-800 leading-relaxed survey-text">
+                                    ${formattedSurvey}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsContainer.innerHTML = resultsHTML || `
+                <div class="text-center text-gray-600">
+                    <p>No results match your filter criteria. Try adjusting your filters.</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
